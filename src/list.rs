@@ -68,4 +68,10 @@ impl List {
         }
         list.into()
     }
+
+    pub fn append(&self, other: &List) -> Rc<List> {
+        let mut vec = self.to_vec();
+        vec.append(&mut other.to_vec());
+        List::from_vec(vec)
+    }
 }
