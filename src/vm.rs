@@ -2,21 +2,18 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use std::fmt;
-use std::ops::{Add};
 
 use crate::list::List;
-
-fn error(msg: &str) {
-    panic!("{}", msg);
-}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum VMValue {
     Number(Rc<f64>),
     String(Rc<String>),
+    Bool(Rc<bool>),
     List(Rc<List>),
     Nil
 }
+
 
 impl VMValue {
     pub fn new_num(val: f64) -> VMValue {
@@ -46,23 +43,7 @@ impl VMValue {
             _ => Err(())
         }
     }
-}
-
-impl fmt::Display for VMValue {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            VMValue::Number(val) => write!(f, "{}", val),
-            VMValue::String(val) => write!(f, "\"{}\"", val),
-            VMValue::List(val) => write!(f, "{}", val),
-            VMValue::Nil => write!(f, "nil"),
-        }
-    }
-}
-
-impl Add for VMValue {
-    type Output = Self;
-
-    fn add(self, other: Self) -> Self {
+    pub fn add(self, other: Self, vm: &VMState) -> Self {
         match self {
             VMValue::String(val) => {
                 let unpacked_other = other.as_str().expect("Can only add string to another string");
@@ -79,10 +60,31 @@ impl Add for VMValue {
                     VMValue::List(unpacked_other) => { // Append
                         VMValue::List(val.append(&unpacked_other))
                     }
-                    _ => panic!("Can only concatenate list to list")
+                    _ => vm.error("Can only concatenate list to list")
                 }
             },
-            _ => panic!("Can't add those")
+            _ => vm.error("Can't add those")
+        }
+    }
+    pub fn sub(self, other: Self, vm: &VMState) -> Self {
+        match self {
+            VMValue::Number(val) => {
+                let unpacked_other = other.as_num().expect("Can only subtract num from another num");
+                VMValue::new_num(*val-*unpacked_other)
+            },
+            _ => vm.error("Can't subtract those")
+        }
+    }
+}
+
+impl fmt::Display for VMValue {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            VMValue::Number(val) => write!(f, "{}", val),
+            VMValue::Bool(val) => write!(f, "{}", val),
+            VMValue::String(val) => write!(f, "\"{}\"", val),
+            VMValue::List(val) => write!(f, "{}", val),
+            VMValue::Nil => write!(f, "nil"),
         }
     }
 }
@@ -93,6 +95,10 @@ pub struct VMState {
 }
 
 impl VMState {
+    pub fn error(&self, msg: &str) -> !{
+        panic!("Error: {}", msg);
+    }
+
     pub fn new() -> VMState {
         VMState {
             namespace: HashMap::new()

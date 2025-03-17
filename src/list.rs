@@ -1,8 +1,8 @@
 use std::{fmt, vec::Vec};
-use std::ops::{Index};
 use std::rc::Rc;
 
 use crate::vm::VMValue;
+use crate::VMState;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum List {
@@ -32,24 +32,6 @@ impl fmt::Display for List {
     }
 }
 
-impl Index<i32> for List {
-    type Output = VMValue;
-    fn index(&self, i: i32) -> &VMValue {
-        let mut current = self;
-        let mut index = i;
-
-        while let List::Pair(value, next) = current {
-            if index == 0 {
-                return value;
-            }
-            current = &next;
-            index -= 1;
-        }
-
-        panic!("Index out of bounds")
-    }
-}
-
 impl List {
     pub fn to_vec(&self) -> Vec<VMValue> {
         let mut current = self;
@@ -73,5 +55,20 @@ impl List {
         let mut vec = self.to_vec();
         vec.append(&mut other.to_vec());
         List::from_vec(vec)
+    }
+
+    pub fn index(&self, i: i32, vm: &VMState) -> &VMValue {
+        let mut current = self;
+        let mut index = i;
+
+        while let List::Pair(value, next) = current {
+            if index == 0 {
+                return value;
+            }
+            current = &next;
+            index -= 1;
+        }
+
+        vm.error("Index out of bounds")
     }
 }
