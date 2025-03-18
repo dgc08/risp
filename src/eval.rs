@@ -46,6 +46,9 @@ fn eval_tokens<'a> (iter: &mut Peekable<impl Iterator<Item = &'a Token>>, vm: &V
         Token::Number(n) => {
             VMValue::new_num(*n)
         }
+        Token::String(s) => {
+            VMValue::new_str(s)
+        } 
         Token::Literal(s) => {
             match s.as_str() { // Check keywords for values
                 "nil" => VMValue::Nil,
@@ -54,18 +57,17 @@ fn eval_tokens<'a> (iter: &mut Peekable<impl Iterator<Item = &'a Token>>, vm: &V
                 _ => vm.get(s)
             }
         }
+        Token::RightParen => vm.error("Unmatched '('"),
         Token::LeftParen => {
             let mut sub_tokens = Vec::new();
             let mut counter = 1;
 
             while let Some(next_token) = iter.next() {
-                if matches!(next_token, Token::RightParen) {
-                    counter -= 1;
+                match next_token {
+                    Token::RightParen => counter -= 1,
+                    Token::LeftParen  => counter += 1,
+                    _ => ()
                 }
-                else if matches!(next_token, Token::LeftParen){
-                    counter += 1;
-                }
-
                 if counter == 0 {
                     break
                 }
@@ -111,10 +113,6 @@ fn eval_tokens<'a> (iter: &mut Peekable<impl Iterator<Item = &'a Token>>, vm: &V
                 },
                 Operator::Assign => todo!()
             }
-        }
-        _ => {
-            println!("Unhandled token: {:?}", token);
-            VMValue::Nil
         }
     }
 }

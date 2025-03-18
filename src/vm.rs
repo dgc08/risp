@@ -108,7 +108,7 @@ impl fmt::Display for VMValue {
         match self {
             VMValue::Number(val) => write!(f, "{}", val),
             VMValue::Bool(val) => write!(f, "{}", val),
-            VMValue::String(val) => write!(f, "\"{}\"", val),
+            VMValue::String(val) => write!(f, "{}", val),
             VMValue::List(val) => write!(f, "{}", val),
             VMValue::Nil => write!(f, "nil"),
         }

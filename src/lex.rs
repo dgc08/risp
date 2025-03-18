@@ -16,6 +16,7 @@ pub enum Operator {
 pub enum Token {
     Number(f64),
     Literal(String),
+    String(String),
     LeftParen,
     RightParen,
 
@@ -29,7 +30,31 @@ fn is_identifier_char(ch: &char) -> bool{
     }
 }
 
-pub fn tokenize(inp: &str, _vm: &VMState) ->  Vec<Token> {
+fn parse_string(iter: &mut impl Iterator<Item = char>, vm: &VMState) -> String {
+    let mut ret: Vec<char> = Vec::new();
+
+    while let Some(c) = iter.next() {
+        match c {
+            '"' => return ret.into_iter().collect(),
+            '\\' => ret.push({
+                let c = iter.next().unwrap_or_else(|| vm.error("Unexpected EOF"));
+                match c {
+                    '0' => '\0',
+                    't' => '\t',
+                    'n' => '\n',
+                    'r' => '\r',
+                    '\\' => '\\',
+                    _ => vm_error!(vm, "Unknown escape code '{}'", c)
+                }
+            }),
+            _ => ret.push(c)
+        }
+    }
+
+    vm.error("Undeterminated string")
+}
+
+pub fn tokenize(inp: &str, vm: &VMState) ->  Vec<Token> {
     let mut ret = Vec::new();
     let mut iter = inp.chars().peekable();
 
@@ -43,6 +68,7 @@ pub fn tokenize(inp: &str, _vm: &VMState) ->  Vec<Token> {
             '*' => ret.push(Token::Operator(Operator::Star)),
             '/' => ret.push(Token::Operator(Operator::Slash)),
             '=' => ret.push(Token::Operator(Operator::Assign)),
+            ';' => iter.by_ref().take_while(|&ch| ch != '\n').for_each(|_| {}),
             '0'..='9' => {
                 let mut number = iter::once(ch)
                     .chain(from_fn(|| iter.by_ref().next_if(|s| s.is_ascii_digit())))
@@ -61,9 +87,12 @@ pub fn tokenize(inp: &str, _vm: &VMState) ->  Vec<Token> {
                 let text = iter::once(ch)
                     .chain(from_fn(|| iter.by_ref().next_if(is_identifier_char)))
                     .collect::<String>();
-                ret.push(Token::Literal(text))
+                ret.push(Token::Literal(text));
             }
-            _ => eprintln!("Unrecognized char {}", ch)
+            '"' => {
+                ret.push(Token::String(parse_string(&mut iter, vm)));
+            }
+            _ => vm_error!(vm, "Unexpected char {}", ch)
         };
     }
     ret
