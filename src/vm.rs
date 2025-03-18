@@ -1,8 +1,11 @@
 use std::collections::HashMap;
+use std::process::exit;
 use std::rc::Rc;
 
 use std::fmt;
 
+use crate::eval::*;
+use crate::lex::tokenize;
 use crate::list::List;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -14,6 +17,11 @@ pub enum VMValue {
     Nil
 }
 
+macro_rules! vm_error {
+    ($vm:expr, $($arg:tt)*) => {{
+        $vm.error(format!($($arg)*));
+    }};
+}
 
 impl VMValue {
     pub fn new_num(val: f64) -> VMValue {
@@ -46,13 +54,13 @@ impl VMValue {
     pub fn add(self, other: Self, vm: &VMState) -> Self {
         match self {
             VMValue::String(val) => {
-                let unpacked_other = other.as_str().expect("Can only add string to another string");
+                let unpacked_other = other.as_str().unwrap_or_else(|_| vm_error!(vm, "Can only add string to another string"));
                 let mut ret = (*val).to_owned();
                 ret.push_str(&((*unpacked_other).to_owned()));
                 VMValue::new_str(&ret)
             }
             VMValue::Number(val) => {
-                let unpacked_other = other.as_num().expect("Can only add num to another num");
+                let unpacked_other = other.as_num().unwrap_or_else(|_| vm_error!(vm, "Can only add num to another num"));
                 VMValue::new_num(*val+*unpacked_other)
             },
             VMValue::List(val) => {
@@ -69,10 +77,28 @@ impl VMValue {
     pub fn sub(self, other: Self, vm: &VMState) -> Self {
         match self {
             VMValue::Number(val) => {
-                let unpacked_other = other.as_num().expect("Can only subtract num from another num");
+                let unpacked_other = other.as_num().unwrap_or_else(|_| vm_error!(vm, "Can only subtract num from another num"));
                 VMValue::new_num(*val-*unpacked_other)
             },
             _ => vm.error("Can't subtract those")
+        }
+    }
+    pub fn div(self, other: Self, vm: &VMState) -> Self {
+        match self {
+            VMValue::Number(val) => {
+                let unpacked_other = other.as_num().unwrap_or_else(|_| vm_error!(vm, "Can only divide num from another num"));
+                VMValue::new_num(*val / *unpacked_other)
+            },
+            _ => vm.error("Can't divide those")
+        }
+    }
+    pub fn mul(self, other: Self, vm: &VMState) -> Self {
+        match self {
+            VMValue::Number(val) => {
+                let unpacked_other = other.as_num().unwrap_or_else(|_| vm_error!(vm, "Can only multiply num from another num"));
+                VMValue::new_num(*val * *unpacked_other)
+            },
+            _ => vm.error("Can't multiply those")
         }
     }
 }
@@ -95,8 +121,9 @@ pub struct VMState {
 }
 
 impl VMState {
-    pub fn error(&self, msg: &str) -> !{
-        panic!("Error: {}", msg);
+    pub fn error(&self, msg: impl fmt::Display) -> !{
+        eprintln!("Error: {}", msg);
+        exit(1);
     }
 
     pub fn new() -> VMState {
@@ -114,5 +141,15 @@ impl VMState {
             Some(val) => val.clone(),
             None => VMValue::Nil
         }
+    }
+
+    pub fn eval(&self, src: &str) -> VMValue {
+        let tokens = tokenize(src, self);
+        eval_all_tokens(tokens, self)
+    }
+
+    pub fn exec(&self, src: &str) {
+        let tokens = tokenize(src, self);
+        exec_all_tokens(tokens, self)
     }
 }

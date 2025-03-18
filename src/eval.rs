@@ -27,6 +27,15 @@ pub fn eval_all_tokens (tokens: Vec<Token>, vm: &VMState) -> VMValue {
     ret
 }
 
+pub fn exec_all_tokens (tokens: Vec<Token>, vm: &VMState) {
+    let mut iter = tokens.iter().peekable();
+
+    while iter.peek().is_some() {
+        println!("{}", eval_tokens(&mut iter, vm));
+    }
+
+}
+
 fn eval_tokens<'a> (iter: &mut Peekable<impl Iterator<Item = &'a Token>>, vm: &VMState) -> VMValue {
     if !iter.peek().is_some() {
         return VMValue::Nil
@@ -47,10 +56,18 @@ fn eval_tokens<'a> (iter: &mut Peekable<impl Iterator<Item = &'a Token>>, vm: &V
         }
         Token::LeftParen => {
             let mut sub_tokens = Vec::new();
+            let mut counter = 1;
 
             while let Some(next_token) = iter.next() {
                 if matches!(next_token, Token::RightParen) {
-                    break;
+                    counter -= 1;
+                }
+                else if matches!(next_token, Token::LeftParen){
+                    counter += 1;
+                }
+
+                if counter == 0 {
+                    break
                 }
                 sub_tokens.push(next_token);
             }
@@ -78,7 +95,21 @@ fn eval_tokens<'a> (iter: &mut Peekable<impl Iterator<Item = &'a Token>>, vm: &V
                     }
                     ret
                 },
-                _ => todo!()
+                Operator::Slash => {
+                    let mut ret = next_expr!(iter, vm);
+                    while iter.peek().is_some() {
+                        ret = ret.div(next_expr!(iter, vm), vm);
+                    }
+                    ret
+                },
+                Operator::Star => {
+                    let mut ret = next_expr!(iter, vm);
+                    while iter.peek().is_some() {
+                        ret = ret.mul(next_expr!(iter, vm), vm);
+                    }
+                    ret
+                },
+                Operator::Assign => todo!()
             }
         }
         _ => {

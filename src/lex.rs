@@ -29,7 +29,7 @@ fn is_identifier_char(ch: &char) -> bool{
     }
 }
 
-pub fn tokenize(inp: String, _vm: &VMState) ->  Vec<Token> {
+pub fn tokenize(inp: &str, _vm: &VMState) ->  Vec<Token> {
     let mut ret = Vec::new();
     let mut iter = inp.chars().peekable();
 
