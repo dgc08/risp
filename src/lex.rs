@@ -3,7 +3,7 @@ use std::iter::from_fn;
 
 use crate::VMState;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Operator {
     Plus,
     Dash,
@@ -12,8 +12,8 @@ pub enum Operator {
     Assign
 }
 
-#[derive(Debug)]
-pub enum Token {
+#[derive(Debug, Clone)]
+pub enum TokenType {
     Number(f64),
     Literal(String),
     String(String),
@@ -21,6 +21,12 @@ pub enum Token {
     RightParen,
 
     Operator(Operator)
+}
+#[derive(Debug, Clone)]
+pub struct Token {
+    pub token: TokenType,
+    pub row: usize,
+    pub col: usize
 }
 
 fn is_identifier_char(ch: &char) -> bool{
@@ -30,14 +36,18 @@ fn is_identifier_char(ch: &char) -> bool{
     }
 }
 
-fn parse_string(iter: &mut impl Iterator<Item = char>, vm: &VMState) -> String {
+fn parse_string(iter: &mut impl Iterator<Item = char>, vm: &VMState) -> (String, usize) {
     let mut ret: Vec<char> = Vec::new();
+    let mut d_col = 0;
 
     while let Some(c) = iter.next() {
+        d_col += 1;
         match c {
-            '"' => return ret.into_iter().collect(),
+            '"' => return (ret.into_iter().collect(), d_col),
+            '\n' => vm.error("Undetermined String"),
             '\\' => ret.push({
-                let c = iter.next().unwrap_or_else(|| vm.error("Unexpected EOF"));
+                d_col += 1;
+                let c = iter.next().unwrap_or_else(|| vm.error("Undetermined String"));
                 match c {
                     '0' => '\0',
                     't' => '\t',
@@ -54,21 +64,33 @@ fn parse_string(iter: &mut impl Iterator<Item = char>, vm: &VMState) -> String {
     vm.error("Undeterminated string")
 }
 
-pub fn tokenize(inp: &str, vm: &VMState) ->  Vec<Token> {
+pub fn tokenize(inp: &str, vm: &mut VMState) ->  Vec<Token> {
     let mut ret = Vec::new();
+
+    let mut col = 0;
+    let mut row = 1; // start on row one as well
+
     let mut iter = inp.chars().peekable();
 
     while let Some(ch) = iter.next() {
+        col += 1;
+        let token =
         match ch {
-            ch if ch.is_whitespace() => continue,
-            '(' => ret.push(Token::LeftParen),
-            ')' => ret.push(Token::RightParen),
-            '+' => ret.push(Token::Operator(Operator::Plus)),
-            '-' => ret.push(Token::Operator(Operator::Dash)),
-            '*' => ret.push(Token::Operator(Operator::Star)),
-            '/' => ret.push(Token::Operator(Operator::Slash)),
-            '=' => ret.push(Token::Operator(Operator::Assign)),
-            ';' => iter.by_ref().take_while(|&ch| ch != '\n').for_each(|_| {}),
+            '\n' => {row+=1; col = 0; continue;},
+            ch if ch.is_whitespace() => continue, // else whitespace
+
+            '(' => TokenType::LeftParen,
+            ')' => TokenType::RightParen,
+            '+' => TokenType::Operator(Operator::Plus),
+            '-' => TokenType::Operator(Operator::Dash),
+            '*' => TokenType::Operator(Operator::Star),
+            '/' => TokenType::Operator(Operator::Slash),
+            '=' => TokenType::Operator(Operator::Assign),
+            ';' => {
+                iter.by_ref().take_while(|&ch| ch != '\n').for_each(|_| {});
+                col = 0; row += 1;
+                continue;
+            },
             '0'..='9' => {
                 let mut number = iter::once(ch)
                     .chain(from_fn(|| iter.by_ref().next_if(|s| s.is_ascii_digit())))
@@ -81,19 +103,28 @@ pub fn tokenize(inp: &str, vm: &VMState) ->  Vec<Token> {
                 }
 
                 let n: f64 = number.parse().unwrap();
-                ret.push(Token::Number(n));
+                TokenType::Number(n)
             },
             'A' ..='Z' | 'a' ..= 'z' | '_' => {
                 let text = iter::once(ch)
                     .chain(from_fn(|| iter.by_ref().next_if(is_identifier_char)))
                     .collect::<String>();
-                ret.push(Token::Literal(text));
+                TokenType::Literal(text)
             }
             '"' => {
-                ret.push(Token::String(parse_string(&mut iter, vm)));
+                let (s, d_col) = parse_string(&mut iter, vm);
+                col += d_col;
+                TokenType::String(s)
             }
             _ => vm_error!(vm, "Unexpected char {}", ch)
         };
+        let t = Token {
+            token,
+            row,
+            col
+        };
+        vm.current_token = t.clone();
+        ret.push(t)
     }
     ret
 }

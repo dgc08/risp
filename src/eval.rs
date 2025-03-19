@@ -15,7 +15,7 @@ macro_rules! next_expr{
     };
 }
 
-pub fn eval_all_tokens (tokens: Vec<Token>, vm: &VMState) -> VMValue {
+pub fn eval_all_tokens (tokens: Vec<Token>, vm: &mut VMState) -> VMValue {
     let mut iter = tokens.iter().peekable();
 
     let mut ret = VMValue::Nil;
@@ -27,7 +27,7 @@ pub fn eval_all_tokens (tokens: Vec<Token>, vm: &VMState) -> VMValue {
     ret
 }
 
-pub fn exec_all_tokens (tokens: Vec<Token>, vm: &VMState) {
+pub fn exec_all_tokens (tokens: Vec<Token>, vm: &mut VMState) {
     let mut iter = tokens.iter().peekable();
 
     while iter.peek().is_some() {
@@ -36,20 +36,21 @@ pub fn exec_all_tokens (tokens: Vec<Token>, vm: &VMState) {
 
 }
 
-fn eval_tokens<'a> (iter: &mut Peekable<impl Iterator<Item = &'a Token>>, vm: &VMState) -> VMValue {
+fn eval_tokens<'a> (iter: &mut Peekable<impl Iterator<Item = &'a Token>>, vm: &mut VMState) -> VMValue {
     if !iter.peek().is_some() {
         return VMValue::Nil
     }
     
     let token = iter.next().unwrap();
-    match token {
-        Token::Number(n) => {
+    vm.current_token = token.clone();
+    match &token.token {
+        TokenType::Number(n) => {
             VMValue::new_num(*n)
         }
-        Token::String(s) => {
+        TokenType::String(s) => {
             VMValue::new_str(s)
         } 
-        Token::Literal(s) => {
+        TokenType::Literal(s) => {
             match s.as_str() { // Check keywords for values
                 "nil" => VMValue::Nil,
                 "true" => VMValue::Bool(true.into()),
@@ -57,15 +58,15 @@ fn eval_tokens<'a> (iter: &mut Peekable<impl Iterator<Item = &'a Token>>, vm: &V
                 _ => vm.get(s)
             }
         }
-        Token::RightParen => vm.error("Unmatched '('"),
-        Token::LeftParen => {
+        TokenType::RightParen => vm.error("Unmatched '('"),
+        TokenType::LeftParen => {
             let mut sub_tokens = Vec::new();
             let mut counter = 1;
 
             while let Some(next_token) = iter.next() {
-                match next_token {
-                    Token::RightParen => counter -= 1,
-                    Token::LeftParen  => counter += 1,
+                match next_token.token {
+                    TokenType::RightParen => counter -= 1,
+                    TokenType::LeftParen  => counter += 1,
                     _ => ()
                 }
                 if counter == 0 {
@@ -81,7 +82,7 @@ fn eval_tokens<'a> (iter: &mut Peekable<impl Iterator<Item = &'a Token>>, vm: &V
             let mut it = sub_tokens.into_iter().peekable();
             eval_tokens(&mut it, vm)
         }
-        Token::Operator(op) => {
+        TokenType::Operator(op) => {
             match op {
                 Operator::Plus => {
                     let mut ret = next_expr!(iter, vm);

@@ -5,7 +5,7 @@ use std::rc::Rc;
 use std::fmt;
 
 use crate::eval::*;
-use crate::lex::tokenize;
+use crate::lex::*;
 use crate::list::List;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -118,17 +118,24 @@ impl fmt::Display for VMValue {
 #[derive(Debug)]
 pub struct VMState {
     namespace: HashMap<String, VMValue>,
+    pub current_token: Token,
 }
 
 impl VMState {
     pub fn error(&self, msg: impl fmt::Display) -> !{
         eprintln!("Error: {}", msg);
+        eprintln!("at {}:{}: \"{:?}\"", self.current_token.row, self.current_token.col, self.current_token.token);
         exit(1);
     }
 
     pub fn new() -> VMState {
         VMState {
-            namespace: HashMap::new()
+            namespace: HashMap::new(),
+            current_token: Token {
+                token: TokenType::Number(0.0),
+                row:0,
+                col:0
+            }
         }
     }
 
@@ -143,13 +150,14 @@ impl VMState {
         }
     }
 
-    pub fn eval(&self, src: &str) -> VMValue {
+    pub fn eval(&mut self, src: &str) -> VMValue {
         let tokens = tokenize(src, self);
         eval_all_tokens(tokens, self)
     }
 
-    pub fn exec(&self, src: &str) {
+    pub fn exec(&mut self, src: &str) {
         let tokens = tokenize(src, self);
+        println!("{:?}", tokens);
         exec_all_tokens(tokens, self)
     }
 }
