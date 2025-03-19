@@ -157,7 +157,6 @@ impl VMState {
 
     pub fn exec(&mut self, src: &str) {
         let tokens = tokenize(src, self);
-        println!("{:?}", tokens);
         exec_all_tokens(tokens, self)
     }
 }

@@ -9,7 +9,7 @@ pub enum Operator {
     Dash,
     Star,
     Slash,
-    Assign
+    Assign,
 }
 
 #[derive(Debug, Clone)]
@@ -17,8 +17,10 @@ pub enum TokenType {
     Number(f64),
     Literal(String),
     String(String),
+    
     LeftParen,
     RightParen,
+    Semi,
 
     Operator(Operator)
 }
@@ -27,6 +29,16 @@ pub struct Token {
     pub token: TokenType,
     pub row: usize,
     pub col: usize
+}
+
+impl Default for Token {
+    fn default() -> Self {
+        Self {
+            token: TokenType::Semi,
+            row: 0,
+            col: 0,
+        }
+    }
 }
 
 fn is_identifier_char(ch: &char) -> bool{
@@ -84,13 +96,19 @@ pub fn tokenize(inp: &str, vm: &mut VMState) ->  Vec<Token> {
             '+' => TokenType::Operator(Operator::Plus),
             '-' => TokenType::Operator(Operator::Dash),
             '*' => TokenType::Operator(Operator::Star),
-            '/' => TokenType::Operator(Operator::Slash),
-            '=' => TokenType::Operator(Operator::Assign),
-            ';' => {
-                iter.by_ref().take_while(|&ch| ch != '\n').for_each(|_| {});
-                col = 0; row += 1;
-                continue;
+            '/' => {
+                if *(iter.peek().unwrap_or(&'\0')) == '/' {
+                    iter.next();
+                    iter.by_ref().take_while(|&ch| ch != '\n').for_each(|_| {});
+                    col = 0; row += 1;
+                    continue;
+                }
+                else {
+                    TokenType::Operator(Operator::Slash)
+                }
             },
+            '=' => TokenType::Operator(Operator::Assign),
+            ';' => TokenType::Semi,
             '0'..='9' => {
                 let mut number = iter::once(ch)
                     .chain(from_fn(|| iter.by_ref().next_if(|s| s.is_ascii_digit())))

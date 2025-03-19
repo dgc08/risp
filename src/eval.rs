@@ -15,6 +15,10 @@ macro_rules! next_expr{
     };
 }
 
+macro_rules! expr_available {
+    ($iter:expr) => { !matches!($iter.peek().cloned().cloned().unwrap_or_default().token, TokenType::Semi) };
+}
+
 pub fn eval_all_tokens (tokens: Vec<Token>, vm: &mut VMState) -> VMValue {
     let mut iter = tokens.iter().peekable();
 
@@ -44,6 +48,12 @@ fn eval_tokens<'a> (iter: &mut Peekable<impl Iterator<Item = &'a Token>>, vm: &m
     let token = iter.next().unwrap();
     vm.current_token = token.clone();
     match &token.token {
+        TokenType::Semi => {
+            if expr_available!(iter) {
+                eval_tokens(iter, vm)
+            }
+            else { VMValue::Nil }
+        }
         TokenType::Number(n) => {
             VMValue::new_num(*n)
         }
@@ -86,28 +96,28 @@ fn eval_tokens<'a> (iter: &mut Peekable<impl Iterator<Item = &'a Token>>, vm: &m
             match op {
                 Operator::Plus => {
                     let mut ret = next_expr!(iter, vm);
-                    while iter.peek().is_some() {
+                    while expr_available!(iter) {
                         ret = ret.add(next_expr!(iter, vm), vm);
                     }
                     ret
                 },
                 Operator::Dash => {
                     let mut ret = next_expr!(iter, vm);
-                    while iter.peek().is_some() {
+                    while expr_available!(iter) {
                         ret = ret.sub(next_expr!(iter, vm), vm);
                     }
                     ret
                 },
                 Operator::Slash => {
                     let mut ret = next_expr!(iter, vm);
-                    while iter.peek().is_some() {
+                    while expr_available!(iter) {
                         ret = ret.div(next_expr!(iter, vm), vm);
                     }
                     ret
                 },
                 Operator::Star => {
                     let mut ret = next_expr!(iter, vm);
-                    while iter.peek().is_some() {
+                    while expr_available!(iter) {
                         ret = ret.mul(next_expr!(iter, vm), vm);
                     }
                     ret
