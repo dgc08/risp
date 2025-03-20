@@ -1,4 +1,3 @@
 - 1 2 3;
 + 2 2;
-"Hello Wöerld";
-nil
+"Hello Wöerld" (/ nil 1 2) ; 3

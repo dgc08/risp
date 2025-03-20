@@ -14,7 +14,9 @@ pub enum VMValue {
     String(Rc<String>),
     Bool(Rc<bool>),
     List(Rc<List>),
-    Nil
+    Nil,
+
+    EOF
 }
 
 macro_rules! vm_error {
@@ -111,6 +113,7 @@ impl fmt::Display for VMValue {
             VMValue::String(val) => write!(f, "{}", val),
             VMValue::List(val) => write!(f, "{}", val),
             VMValue::Nil => write!(f, "nil"),
+            VMValue::EOF => Ok(()),
         }
     }
 }
@@ -119,12 +122,15 @@ impl fmt::Display for VMValue {
 pub struct VMState {
     namespace: HashMap<String, VMValue>,
     pub current_token: Token,
+    src: Vec<String>,
 }
 
 impl VMState {
     pub fn error(&self, msg: impl fmt::Display) -> !{
         eprintln!("Error: {}", msg);
-        eprintln!("at {}:{}: \"{:?}\"", self.current_token.row, self.current_token.col, self.current_token.token);
+        eprintln!("at {}:{}:", self.current_token.row, self.current_token.col);
+        eprintln!("{}", self.src[self.current_token.row-1]);
+        eprintln!("{:x$}^ Here", "", x = self.current_token.col-1);
         exit(1);
     }
 
@@ -135,7 +141,8 @@ impl VMState {
                 token: TokenType::Number(0.0),
                 row:0,
                 col:0
-            }
+            },
+            src: Vec::new(),
         }
     }
 
@@ -152,11 +159,13 @@ impl VMState {
 
     pub fn eval(&mut self, src: &str) -> VMValue {
         let tokens = tokenize(src, self);
+        self.src = src.lines().map(|s| s.to_string()).collect();
         eval_all_tokens(tokens, self)
     }
 
     pub fn exec(&mut self, src: &str) {
         let tokens = tokenize(src, self);
+        self.src = src.lines().map(|s| s.to_string()).collect();
         exec_all_tokens(tokens, self)
     }
 }

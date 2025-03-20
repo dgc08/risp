@@ -25,7 +25,11 @@ pub fn eval_all_tokens (tokens: Vec<Token>, vm: &mut VMState) -> VMValue {
     let mut ret = VMValue::Nil;
 
     while iter.peek().is_some() {
-        ret = eval_tokens(&mut iter, vm);
+        let expr = eval_tokens(&mut iter, vm);
+        if matches!(expr, VMValue::EOF) {
+            return ret
+        }
+        ret = expr
     }
     
     ret
@@ -35,9 +39,11 @@ pub fn exec_all_tokens (tokens: Vec<Token>, vm: &mut VMState) {
     let mut iter = tokens.iter().peekable();
 
     while iter.peek().is_some() {
-        println!("{}", eval_tokens(&mut iter, vm));
+        let expr = eval_tokens(&mut iter, vm);
+        if !matches!(expr, VMValue::EOF) {
+            println!("{}", expr);
+        }
     }
-
 }
 
 fn eval_tokens<'a> (iter: &mut Peekable<impl Iterator<Item = &'a Token>>, vm: &mut VMState) -> VMValue {
@@ -52,6 +58,7 @@ fn eval_tokens<'a> (iter: &mut Peekable<impl Iterator<Item = &'a Token>>, vm: &m
             if expr_available!(iter) {
                 eval_tokens(iter, vm)
             }
+            else if iter.peek().is_none() { VMValue::EOF }
             else { VMValue::Nil }
         }
         TokenType::Number(n) => {
