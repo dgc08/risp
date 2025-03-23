@@ -29,21 +29,10 @@ pub fn eval_all_tokens (tokens: Vec<Token>, vm: &mut VMState) -> VMValue {
         if matches!(expr, VMValue::EOF) {
             return ret
         }
-        ret = expr
+        ret = ret.apply(expr, vm);
     }
     
     ret
-}
-
-pub fn exec_all_tokens (tokens: Vec<Token>, vm: &mut VMState) {
-    let mut iter = tokens.iter().peekable();
-
-    while iter.peek().is_some() {
-        let expr = eval_tokens(&mut iter, vm);
-        if !matches!(expr, VMValue::EOF) {
-            println!("{}", expr);
-        }
-    }
 }
 
 fn eval_tokens<'a> (iter: &mut Peekable<impl Iterator<Item = &'a Token>>, vm: &mut VMState) -> VMValue {
@@ -129,7 +118,14 @@ fn eval_tokens<'a> (iter: &mut Peekable<impl Iterator<Item = &'a Token>>, vm: &m
                     }
                     ret
                 },
-                Operator::Assign => todo!()
+                Operator::Assign => {
+                    let token = iter.next().unwrap_or_else(|| vm.error("Unexpected EOF, expected Identifier"));
+                    let TokenType::Literal(ref ident) = token.token else { vm.error("Unexpected EOF, expected Identifier") };
+
+                    let val = next_expr!(iter, vm);
+                    vm.set(ident, val.clone());
+                    val
+                }
             }
         }
     }

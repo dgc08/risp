@@ -5,6 +5,7 @@ use std::fs;
 mod vm;
 
 mod list;
+mod func;
 mod lex;
 mod eval;
 
@@ -20,7 +21,7 @@ fn main () {
     }
     else {
         let contents = fs::read_to_string(&args[1]).unwrap_or_else(|e| vm_error!(vm, "Could not open file: {}", e));
-        vm.exec(&contents);
+        vm.eval(&contents);
     }
 
 }

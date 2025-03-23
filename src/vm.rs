@@ -5,6 +5,7 @@ use std::rc::Rc;
 use std::fmt;
 
 use crate::eval::*;
+use crate::func::{Function, populate_vm};
 use crate::lex::*;
 use crate::list::List;
 
@@ -14,6 +15,7 @@ pub enum VMValue {
     String(Rc<String>),
     Bool(Rc<bool>),
     List(Rc<List>),
+    Function(Rc<Function>),
     Nil,
 
     EOF
@@ -53,6 +55,18 @@ impl VMValue {
             _ => Err(())
         }
     }
+
+    pub fn apply(self, other: Self, vm: &VMState) -> Self {
+        match &self {
+            VMValue::String(_) => {
+                if matches!(other, VMValue::String(_)) { self.add(other, vm) }
+                else { other }
+            }
+            VMValue::Function(f) => f.add_arg(other, vm),
+            _ => other,
+        }
+    }
+
     pub fn add(self, other: Self, vm: &VMState) -> Self {
         match self {
             VMValue::String(val) => {
@@ -113,6 +127,7 @@ impl fmt::Display for VMValue {
             VMValue::String(val) => write!(f, "{}", val),
             VMValue::List(val) => write!(f, "{}", val),
             VMValue::Nil => write!(f, "nil"),
+            VMValue::Function(_) => write!(f, "<function>"),
             VMValue::EOF => Ok(()),
         }
     }
@@ -121,8 +136,10 @@ impl fmt::Display for VMValue {
 #[derive(Debug)]
 pub struct VMState {
     namespace: HashMap<String, VMValue>,
-    pub current_token: Token,
     src: Vec<String>,
+
+    pub current_token: Token,
+    pub current_contenxt: Option<Function>,
 }
 
 impl VMState {
@@ -135,15 +152,18 @@ impl VMState {
     }
 
     pub fn new() -> VMState {
-        VMState {
+        let mut ret = VMState {
             namespace: HashMap::new(),
+            src: Vec::new(),
             current_token: Token {
                 token: TokenType::Number(0.0),
                 row:0,
                 col:0
             },
-            src: Vec::new(),
-        }
+            current_contenxt: Option::None,
+        };
+        populate_vm(&mut ret);
+        ret
     }
 
     pub fn set(&mut self, key: &str, val: VMValue) {
@@ -163,9 +183,4 @@ impl VMState {
         eval_all_tokens(tokens, self)
     }
 
-    pub fn exec(&mut self, src: &str) {
-        let tokens = tokenize(src, self);
-        self.src = src.lines().map(|s| s.to_string()).collect();
-        exec_all_tokens(tokens, self)
-    }
 }
